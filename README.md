@@ -2,10 +2,10 @@ Transcriptomics analyzes to explore candidate cilia genes have differential expr
 
 GSE165577 (single cell RNA-seq data from fused cerebral+ganglionic eminens organodis with MECP2 mutation)
 
-Differential Gene Expression Analysis (DESeq2, clusterprofiler)
+* Differential Gene Expression Analysis (DESeq2, clusterprofiler)
 
-Gene Set Enrichment Analysis (Core code from MSigDB)
+* Gene Set Enrichment Analysis (Core code from MSigDB)
 
-Corellation network Analysis (hdWGCNA)
+* Corellation network Analysis (hdWGCNA)
 
-Cell Trajectory Analysis (monocle3)
+* Cell Trajectory Analysis (monocle3)
