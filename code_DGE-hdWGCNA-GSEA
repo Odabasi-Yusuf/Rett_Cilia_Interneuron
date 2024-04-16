@@ -1,0 +1,751 @@
+load("Samarasinghe_2021_seurat_object.RData")
+datExpr <- SetIdent(datExpr, value = datExpr@meta.data$Genotype)
+p1 <- VlnPlot(datExpr, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+p2 <- FeatureScatter(datExpr, feature1 = "nFeature_RNA", feature2 = "nCount_RNA")
+p3 <- FeatureScatter(datExpr, feature1 = "nCount_RNA", feature2 = "percent.mt")
+p2+p3
+datExpr <- subset(datExpr, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 10)
+
+top_features <- head(VariableFeatures(datExpr), 20)
+p4 <- VariableFeaturePlot(datExpr)
+p5 <- LabelPoints(plot = p4, points = top_features, repel = TRUE)
+datExpr <- RunPCA(datExpr, npcs = 50)
+
+ElbowPlot(datExpr, ndims = ncol(Embeddings(datExpr, "pca")))
+datExpr <- JackStraw(datExpr, num.replicate = 100)
+datExpr <- ScoreJackStraw(datExpr, dims = 1:20)
+JackStrawPlot(datExpr, dims = 1:20)
+PCHeatmap(datExpr, dims = 1:20, cells = 500, balanced = TRUE, ncol = 4)
+
+datExpr <- FindNeighbors(datExpr, dims = 1:20)
+datExpr <- FindClusters(datExpr, resolution = 0.5)
+datExpr <- RunUMAP(datExpr, dims = 1:20)
+#DimPlot(datExpr, reduction = "umap", label = TRUE) + NoLegend()
+a <- DimPlot(datExpr, reduction = "umap", group.by = "Time", label = TRUE)
+b <- DimPlot(datExpr, reduction = "umap", group.by = "Genotype", label = TRUE)
+c <- DimPlot(datExpr, reduction = "umap", label = TRUE)
+(a /b | c)
+
+all.markers <- FindAllMarkers(datExpr, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+write_delim(all.markers, "ALLmarkes.csv")
+top9markers <- all.markers %>%
+  group_by(cluster) %>%
+  top_n(n = 9, wt = avg_log2FC)
+
+write_delim(top9markers, "top9markes.csv")
+DoHeatmap(datExpr, features = top9markers$gene) + NoLegend()
+
+ct_markers <- c("DLX6","ISL1","DLX1","DLX2","DLX5","GAD1","ERBB4","SST","VIP","PVALB")    
+DoHeatmap(datExpr, features = ct_markers) + NoLegend()
+
+FeaturePlot(datExpr, features = c("DLX6","ISL1","DLX1","DLX2","DLX5","GAD1","ERBB4","SST","VIP","PVALB"))
+VlnPlot(datExpr, features = c("DLX6","ISL1","DLX1","DLX2","DLX5","GAD1","ERBB4","SST","VIP","PVALB"), pt.size = 0)
+#last_idents <- c("Exct_Neu","Exct_Neu","Mullerglia/endothelial","Unknown","Exct_Neu","Neuroblast","Exct_Neu","Interneuron","Interneuron","NSC","Unknown",
+                # "Astrocyte","Interneuron","NSC","Cho_Plex","Astrocyte","Interneuron","Cajal-Retzius","Interneuron")
+
+IN_seurat <- subset(datExpr, subset = seurat_clusters %in% c("12","6","9"))
+IN_seurat <- FindVariableFeatures(object = IN_seurat)
+IN_seurat <- ScaleData(IN_seurat)
+IN_seurat <- RunPCA(IN_seurat, npcs = 50)
+IN_seurat <- JackStraw(IN_seurat, num.replicate = 100)
+IN_seurat <- ScoreJackStraw(IN_seurat, dims = 1:20)
+JackStrawPlot(IN_seurat, dims = 1:20)
+ElbowPlot(IN_seurat)
+
+IN_seurat <- RunUMAP(IN_seurat, dims = c(1:20))
+IN_seurat <- FindNeighbors(IN_seurat, dims = c(1:20)) %>% FindClusters(resolution = 0.3)
+p6 <- UMAPPlot(IN_seurat, group.by="Genotype")
+p7 <- UMAPPlot(IN_seurat, group.by="Time")
+p6+p7
+
+########################################## WT ###################################
+WT <- subset(IN_seurat, subset = Genotype %in% c("Ctrl"))
+WT <- FindNeighbors(WT, dims = 2:5)
+WT <- FindClusters(WT, resolution = 0.5)
+WT <- RunUMAP(WT, dims = 2:5)
+DimPlot(WT, reduction = "umap", group.by = "Time", label = TRUE)
+DimPlot(WT, reduction = "umap", label = TRUE)
+
+FeaturePlot(WT, features = c("DLX6","ISL1","DLX1","DLX2","DLX5","GAD1","ERBB4","SST","VIP","PVALB"))
+VlnPlot(WT, features = c("DLX6","ISL1","DLX1","DLX2","DLX5","GAD1","ERBB4","SST","VIP","PVALB"), pt.size = 0)
+
+########################################## RETT ###################################
+RTT <- subset(IN_seurat, subset = Genotype %in% c("Rett"))
+
+RTT <- RunPCA(RTT, features = VariableFeatures(object = RTT))
+ElbowPlot(RTT, ndims = ncol(Embeddings(RTT, "pca")))
+RTT <- JackStraw(RTT, num.replicate = 100)
+RTT <- ScoreJackStraw(RTT)
+JackStrawPlot(RTT, dims = 1:6)
+PCHeatmap(RTT, dims = 2:11, cells = 500, balanced = TRUE, ncol = 4)
+
+RTT <- FindNeighbors(RTT, dims = 2:11)
+RTT <- FindClusters(RTT, resolution = 0.5)
+RTT <- RunUMAP(WT, dims = 2:11)
+DimPlot(RTT, reduction = "umap", group.by = "Time", label = TRUE)
+DimPlot(RTT, reduction = "umap", label = TRUE)
+
+FeaturePlot(RTT, features = c("DLX6","ISL1","DLX1","DLX2","DLX5","GAD1","ERBB4","SST","VIP","PVALB"))
+VlnPlot(RTT, features = c("DLX6","ISL1","DLX1","DLX2","DLX5","GAD1","ERBB4","SST","VIP","PVALB"), pt.size = 0)
+
+############################################# Interneuron #############################
+interneuron <- subset(datExpr1, subset = yeni %in% c("Interneuron"))
+
+D100_IN <- subset(IN_seurat, subset = Time %in% c("D100"))
+#D56_70_IN <- subset(interneuron, subset = Time %in% c("D100"), invert = TRUE)
+matrix <- as.matrix(D100_IN@assays$RNA@counts)+1
+#Times <- c(rep("D56_70", 3037), rep("D100", 1060))
+#interneuron@meta.data$zaman <- Times
+
+Genotype <- D100_IN@meta.data$Genotype
+metadata <- as.data.frame(Genotype)
+metadata$Genotype <- factor(metadata$Genotype)
+factor_col <- sapply(metadata,is.factor)
+factor_col
+
+interneuron <- ScaleData(interneuron)
+interneuron <- RunPCA(interneuron, npcs = 50)
+ElbowPlot(interneuron, ndims = ncol(Embeddings(interneuron, "pca")))
+interneuron <- JackStraw(interneuron, num.replicate = 100)
+interneuron <- ScoreJackStraw(interneuron)
+a <- PCHeatmap(interneuron, dims = 1:20, cells = 500, balanced = TRUE, ncol = 4)
+interneuron <- RunUMAP(interneuron, dims = 1:20)
+interneuron <- FindNeighbors(interneuron, dims = 1:20) %>% FindClusters(resolution = 0.5)
+
+DimPlot(interneuron, reduction = "umap", group.by = "Time", label = TRUE)
+DimPlot(interneuron, reduction = "umap", group.by = "Genotype", label = TRUE)
+DimPlot(interneuron, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
+
+IN_all.markers <- FindAllMarkers(interneuron, only.pos = TRUE, min.pct = 0.25, logfc.threshold = log(1.2))
+write_delim(IN_all.markers, "IN_ALLmarkes.csv")
+IN_top10markers <- IN_all.markers %>%
+  group_by(cluster) %>%
+  top_n(n = 10, wt = avg_log2FC)
+write_delim(IN_top10markers, "IN_top10markers.csv")
+
+
+library(DESeq2)
+library(EnhancedVolcano)
+library(DGEobj.utils)
+library(wrMisc)
+
+object <- subset(interneuron, subset = seurat_clusters %in% c("11"), invert=TRUE)  ##### 0:10 ####
+DimPlot(object, reduction = "umap", group.by = "Time", label = TRUE)
+DimPlot(object, reduction = "umap", group.by = "Genotype", label = TRUE)
+
+D100_IN <- subset(IN_seurat, subset = Time %in% c("D100"))
+D70_IN <- subset(IN_seurat, subset = Time %in% c("D70"))
+D56_IN <- subset(IN_seurat, subset = Time %in% c("D56"))
+
+matrix_100 <-as.matrix(D100_IN@assays$RNA@counts)
+matrix_70 <-as.matrix(D70_IN@assays$RNA@counts)
+matrix_56 <-as.matrix(D56_IN@assays$RNA@counts)
+
+Genotype <- D100_IN@meta.data$Genotype
+metadata <- as.data.frame(Genotype)
+metadata$Genotype <- factor(metadata$Genotype)
+factor_col <- sapply(metadata,is.factor)
+factor_col
+
+rownames(metadata) <- colnames(matrix_100)
+#matrix <- as.matrix(WT@assays$RNA@counts)+1
+dds <- DESeqDataSetFromMatrix(matrix_100, metadata,~Genotype)
+
+dds$Genotype <- relevel(dds$Genotype, ref = "Ctrl")
+dds <- DESeq(dds)
+resultsNames(dds)
+
+res2 <- results(dds, alpha=0.05)
+res2 <- na.omit(res2)
+
+res3 <- results(dds, alpha=0.05)
+res3 <- na.omit(res3)
+
+res4 <- results(dds, alpha=0.05)
+res4 <- na.omit(res4)
+#res1 <- res
+saveRDS(res4, "d100_deseq2.rds")  ##### 0:10 ####
+
+up <- subset(res4, res4$log2FoldChange > 1 & res4$padj < 0.05)
+up <- up[order(-up$log2FoldChange),]
+up_list <- head(rownames(up), n=10L)
+
+down <- subset(res4, res4$log2FoldChange < -1 & res4$padj < 0.05)
+down <- down[order(down$log2FoldChange),]
+down_list <- head(rownames(down), n=10L)
+
+plot_top_20 <- c(up_list, down_list)
+
+VOLC3 <- EnhancedVolcano(res4,
+                lab=rownames(res4),
+                x="log2FoldChange",
+                y="padj",
+                selectLab=plot_top_20,
+                drawConnectors=TRUE,
+                legendPosition = "none",
+                FCcutoff=1,
+                pCutoff=0.05
+)
+
+res <- readRDS("D100_deseq2.rds")
+Up5 <- res4[which(res4$log2FoldChange > 1 & res4$padj < .05),]
+Up5 <- Up5[order(-Up5$log2FoldChange),]
+Up_list1 <- Up5@rownames
+
+Down5 <- res4[which(res4$log2FoldChange < -1 & res4$padj < .05),]
+Down5 <- Down5[order(Down5$log2FoldChange),]
+Down_list1 <- Down5@rownames
+
+signif_genes <- rownames(res)
+signif_res_lFC <- res$log2FoldChange
+names(signif_res_lFC) <- signif_genes
+dfl2fc <- cbind(signif_genes, signif_res_lFC)
+
+write.table(dfl2fc[,-1], file = 'l2fcD100.txt')
+write.table(Down_list5, 'Down56.txt')  ##### 0:10 ####
+write.table(Up_list5, 'Up56.txt')  ##### 0:10 ####
+
+df = list(D56_up_genes=Up_list5, D56_down_genes=Down_list5, D70_up_genes=Up_list7, D70_down_genes=Down_list7,
+          D100_up_genes=Up_list1, D100_down_genes=Down_list1)
+attributes(df) = list(names = names(df),
+                      row.names=1:max(length(Up_list5),length(Down_list5),length(Up_list7),length(Down_list7),
+                                      length(Up_list1),length(Down_list1)), class='data.frame')
+
+geness <- c(df[,1],df[,2],df[,3],df[,4],df[,5],df[,6])
+columnname <- colnames(df)
+samples <- c(rep(columnname[1], 29), rep(columnname[2], 83), rep(columnname[3], 20), rep(columnname[4], 24), 
+             rep(columnname[5], 47), rep(columnname[6], 28))
+
+df2 <- data.frame(sample <- samples, genes <- geness)
+
+
+samples_id <- unique(df2$sample....samples)
+
+
+genler <- do.call(rbind, unlist(
+  
+  lapply(seq_along(samples_id), function(n)
+    
+    combn(samples_id, n, function(subtitles) {
+      
+      OLgenes <- Reduce(function(s, t2) intersect(s, df2$genes....geness[df2$sample....samples==t2]), 
+                        subtitles[-1], 
+                        df2$genes....geness[df2$sample....samples==subtitles[1]])
+      data.frame(
+        Sample_IDs=paste(subtitles, collapse=","),
+        Common_Genes=paste(OLgenes, collapse=",")
+      )
+    }, simplify=FALSE) 
+  ), 
+  recursive=FALSE)) 
+
+write.table(genler, file="ortak_genler", append = FALSE, sep = " ", dec = ".",
+            row.names = TRUE, col.names = TRUE)
+
+
+selected_table <- read.csv("selected_table.csv", sep = ";")
+selected_genes <- selected_table$shared.name
+
+res <- readRDS("d100l1_deseq2.rds")
+res1 <- readRDS("d70l1_deseq2.rds")
+res2 <- readRDS("d56l1_deseq2.rds")
+df_100 <- data.frame(name = rownames(res), log2fc = res$lfcSE)
+df_100_selected <- df_100[which(df_100$name %in% selected_genes),]
+
+df_70 <- data.frame(name = rownames(res1), log2fc = res1$lfcSE)
+df_70_selected <- df_70[which(df_70$name %in% selected_genes),]
+
+df_56 <- data.frame(name = rownames(res2), log2fc = res2$lfcSE)
+df_56_selected <- df_56[which(df_56$name %in% selected_genes),]
+
+write_delim(df_100_selected, file = "df100selected.csv")
+
+library(clusterProfiler)
+library(enrichplot)
+library(ggplot2)
+library("org.Hs.eg.db", character.only = TRUE)
+library(dplyr)
+
+#res <- readRDS("d70l1_deseq2.rds")
+
+signif_res <- res4[res4$padj < 0.05 & !is.na(res4$padj), ]
+signif_genes <- rownames(signif_res)
+signif_res_lFC <- signif_res$log2FoldChange
+names(signif_res_lFC) <- signif_genes
+signif_res_lFC <- sort(signif_res_lFC, decreasing = TRUE)
+
+GSEGO <- gseGO(geneList=signif_res_lFC, 
+                 ont ="MF", 
+                 keyType = "SYMBOL", 
+                 nPerm = 10000, 
+                 minGSSize = 100, 
+                 maxGSSize = 500, 
+                 pvalueCutoff = 0.05, 
+                 verbose = TRUE, 
+                 OrgDb = "org.Hs.eg.db" 
+                 )
+
+library(patchwork)
+require(DOSE)
+MF <- dotplot(GSEGO, showCategory=15, split=".sign", font.size = 9) + facet_grid(.~.sign) + ggtitle("MF ontology")
+#CC <- dotplot(GSEGO, showCategory=5, split=".sign", font.size = 9) + facet_grid(.~.sign) + ggtitle("CC ontology")
+BP1 <- dotplot(GSEGO, showCategory=15, split=".sign", font.size = 10) + facet_grid(.~.sign) + ggtitle("BP ontology")
+GSEGO <- pairwise_termsim(GSEGO)
+BPp <- emapplot(GSEGO, showCategory = 15, cex_label_category = .7)
+((VOLC3 / VOLC2 / VOLC1) | (BP2 / BP / BP1) | (BP22 / BPp / BP11) + plot_layout(width = c(2,1)))
+(BP22 | BPp | BP11 + plot_layout(width = c(1,1)))
+A <- ((VOLC3 / BP2) | BP22 + plot_layout(width = c(1,2)))
+B <- (VOLC2 | (BP/BPp) + plot_layout(width = c(1,2)))
+C <- (VOLC1 | (BP1/BP11) + plot_layout(width = c(1,2)))
+
+#######################################################################################################################
+#######################################################################################################################
+library(pheatmap)
+matrix_56 <-as.matrix(ind56@assays$RNA@data)
+genler <- read.csv("GENLER_D566.csv", sep = ";")
+a <- data.frame(genler$GENES)
+new_d100_matrix <- matrix_56[rownames(matrix_56) %in% a$genler.GENES,]
+rn <- rownames(new_d100_matrix)
+new_d100_matrix <- as.data.frame(cbind(rn, new_d100_matrix))
+new_d100_matrix1 <- new_d100_matrix[order(new_d100_matrix$rn),]
+aa <- genler[order(genler$GENES),]
+b <- data.frame(aa$PATHWAYS)
+cl <- colnames(new_d100_matrix)
+write_delim(as.data.frame(cl), "cl.csv")
+new_d100_matrix <- data.matrix(new_d100_matrix1[,-1])
+new_d100_matrix11 <- new_d100_matrix1[,-1]
+c <- data.frame(sample = rep(c("CTRL", "MUT"), c(1908, 1872)))
+row.names(c) <- colnames(new_d100_matrix)
+
+my_colour = list(
+  sample = c(MUT = "#5977ff", CTRL = "#f74747")
+)
+
+pheatmap::pheatmap(new_d100_matrix, annotation_colors = my_colour, annotation_col = c, cluster_cols = F)
+
+IN100SO <- ScaleData(D100_IN)
+IN100SO <- RunPCA(IN100SO, npcs = 50)
+ElbowPlot(IN100SO, ndims = ncol(Embeddings(IN100SO, "pca")))
+IN100SO <- JackStraw(IN100SO, num.replicate = 100)
+IN100SO <- ScoreJackStraw(IN100SO)
+JackStrawPlot(IN100SO, dims = 1:5)
+PCHeatmap(IN100SO, dims = 1:20, cells = 500, balanced = TRUE, ncol = 4)
+IN100SO <- RunUMAP(IN100SO, dims = 1:12)
+IN100SO <- FindNeighbors(IN100SO, dims = 1:12) %>% FindClusters(resolution = 0.5)
+DimPlot(IN100SO, reduction = "umap", group.by = "Genotype", label = TRUE)
+FeaturePlot(IN100SO, c("HDAC6","MECP2","FOXG1","CDKL5","TUBB","TUBA1B","TUBB2A","TUBA1A","TUBB2B","TUBB3"))
+FeaturePlot(IN100SO, c("HDAC6","MECP2"))
+
+library(Seurat)
+library(tidyverse)
+library(cowplot)
+library(patchwork)
+library(WGCNA)
+#library(devtools)
+#library(tester)
+#devtools::install_github('smorabit/hdWGCNA', ref='dev')
+library(hdWGCNA)
+
+object1 <- ScaleData(object)
+object1 <- RunPCA(object1, npcs = 50)
+ElbowPlot(object1, ndims = ncol(Embeddings(object1, "pca")))
+object1 <- JackStraw(object1, num.replicate = 100)
+object1 <- ScoreJackStraw(object1)
+JackStrawPlot(object1, dims = 1:5)
+PCHeatmap(object1, dims = 1:20, cells = 500, balanced = TRUE, ncol = 4)
+object1 <- RunUMAP(object1, dims = 1:20)
+object1 <- FindNeighbors(object1, dims = 1:20) %>% FindClusters(resolution = 0.5)
+a <- DimPlot(object1, reduction = "umap", group.by = "Time", label = TRUE)
+b <- DimPlot(object1, reduction = "umap", group.by = "Genotype", label = TRUE)
+((z) | ((a / b) + plot_layout(width = c(2,1))))
+FeaturePlot(object1, c("HDAC6","MECP2","FOXG1","CDKL5","TUBB","TUBA1B","TUBB2A","TUBA1A","TUBB2B","TUBB3"))
+
+object100 <- subset(object11, subset = Time %in% c("D100"))  ##### d56-70-100 ####
+#object11 <- object1
+object1 <- ScaleData(D100_IN)
+object1 <- RunPCA(object1, npcs = 50)
+ElbowPlot(object1, ndims = ncol(Embeddings(object1, "pca")))
+#object1 <- JackStraw(object1, num.replicate = 100)
+#object1 <- ScoreJackStraw(object1)
+#JackStrawPlot(object1, dims = 1:5)
+#PCHeatmap(object1, dims = 1:20, cells = 500, balanced = TRUE, ncol = 4)
+object1 <- RunUMAP(object1, dims = 1:20)
+object1 <- FindNeighbors(object1, dims = 1:20) %>% FindClusters(resolution = 0.3)
+a <- DimPlot(object1, reduction = "umap", group.by = "Time", label = TRUE)
+b <- DimPlot(object1, reduction = "umap", group.by = "Genotype", label = TRUE)
+
+seurat_obj <- SetupForWGCNA(
+  object1,
+  gene_select = "fraction", # the gene selection approach
+  fraction = 0.05, # fraction of cells that a gene needs to be expressed in order to be included
+  wgcna_name = "interneuron_d56" # the name of the hdWGCNA experiment
+)
+
+# construct metacells  in each group
+seurat_obj <- MetacellsByGroups(
+  seurat_obj = seurat_obj,
+  group.by = c("Genotype"), # specify the columns in seurat_obj@meta.data to group by
+  reduction = 'pca', # select the dimensionality reduction to perform KNN on
+  k = 25, # nearest-neighbors parameter
+  max_shared = 10, # maximum number of shared cells between two metacells
+  ident.group = 'Genotype' # set the Idents of the metacell seurat object
+)
+
+seurat_obj <- NormalizeMetacells(seurat_obj)
+
+groupname <- c("Ctrl","Rett")
+seurat_obj <- SetDatExpr(
+  seurat_obj,
+  group_name = groupname, # the name of the group of interest in the group.by column
+  group.by='Genotype', # the metadata column containing the cell type info. This same column should have also been used in MetacellsByGroups
+  assay = 'RNA', # using RNA assay
+  slot = 'data' # using normalized data
+)
+
+seurat_obj <- TestSoftPowers(
+  seurat_obj,
+  networkType = 'signed' # you can also use "unsigned" or "signed hybrid"
+)
+
+# plot the results:
+plot_list1 <- PlotSoftPowers(seurat_obj)
+# assemble with patchwork
+d <- wrap_plots(plot_list1, ncol=2)
+power_table <- GetPowerTable(seurat_obj)
+head(power_table)
+
+seurat_obj <- ConstructNetwork(
+  seurat_obj, soft_power=4,
+  setDatExpr=FALSE,
+  tom_name = 'IN_D100', # name of the topoligical overlap matrix written to disk
+  overwrite_tom = T
+)
+PlotDendrogram(seurat_obj, main='IN_D100 Dendrogram')
+TOM <- GetTOM(seurat_obj)
+
+# need to run ScaleData first or else harmony throws an error:
+seurat_obj <- ScaleData(seurat_obj, features=VariableFeatures(seurat_obj))
+# compute all MEs in the full single-cell dataset
+seurat_obj <- ModuleEigengenes( #group.by.vars="Genotype"
+  seurat_obj
+  )
+MEs <- GetMEs(seurat_obj)
+
+inmetadata <- rownames(MEs)
+phenotype <- seurat_obj$Genotype
+inmetadata <- data.frame(Run = inmetadata, phenotype = phenotype)
+
+des_mat <- model.matrix(~inmetadata$phenotype)
+fit <- limma::lmFit(t(MEs), design = des_mat)
+fit <- limma::eBayes(fit)
+stats_df <- limma::topTable(fit, number = ncol(MEs)) %>%
+  tibble::rownames_to_column("module")
+
+
+# compute eigengene-based connectivity (kME):
+seurat_obj <- ModuleConnectivity(
+  seurat_obj,
+  group.by = 'Genotype', group_name = groupname,
+  sparse = F
+)
+
+# rename the modules
+seurat_obj <- ResetModuleNames(
+  seurat_obj,
+  new_name = c("Module")
+)
+f <- PlotKMEs(seurat_obj, ncol=4)
+
+# get the module assignment table:
+modules <- GetModules(seurat_obj)
+# show the first 6 columns:
+head(modules[,1:6])
+
+# get hub genes
+hub_df <- GetHubGenes(seurat_obj70, n_hubs = 50)
+head(hub_df)
+saveRDS(seurat_obj, file='hdWGCNA_object_d100.rds')
+saveRDS(IN_so, file='IN_so.rds')
+
+# compute gene scoring for the top 25 hub genes by kME for each module
+# with Seurat method
+seurat_obj <- ModuleExprScore(
+  seurat_obj,
+  n_genes = 15,
+  method='Seurat')
+# compute gene scoring for the top 25 hub genes by kME for each module
+# with UCell method
+#BiocManager::install("UCell")
+library(UCell)
+seurat_obj <- ModuleExprScore(
+  seurat_obj,
+  n_genes = 25,
+  method='UCell')
+
+
+plot_list2 <- ModuleFeaturePlot(
+  seurat_obj,
+  features='hMEs', # plot the hMEs
+  order=TRUE # order so the points with highest hMEs are on top
+)
+# stitch together with patchwork
+g <- wrap_plots(plot_list2, ncol=4)
+
+# make a featureplot of hub scores for each module
+plot_list3 <- ModuleFeaturePlot(
+  seurat_obj,
+  features='scores', # plot the hub gene scores
+  order='shuffle', # order so cells are shuffled
+  ucell = F # depending on Seurat vs UCell for gene scoring
+)
+# stitch together with patchwork
+h <- wrap_plots(plot_list3, ncol=2)
+
+(g / h + plot_layout(width = c(1,1)))
+# plot module correlagram
+ModuleCorrelogram(seurat_obj)
+
+# get hMEs from seurat object
+#MEs <- GetMEs(seurat_obj, harmonized=TRUE)
+mods <- colnames(MEs); mods <- mods[mods != 'grey']
+# add hMEs to Seurat meta-data:
+seurat_obj@meta.data <- cbind(seurat_obj@meta.data, MEs)
+
+# plot with Seurat's DotPlot function
+p <- DotPlot(seurat_obj, features=mods, group.by = 'Genotype')
+# flip the x/y axes, rotate the axis labels, and change color scheme:
+p <- p +
+  coord_flip() +
+  RotatedAxis() +
+  scale_color_gradient2(high='red', mid='grey95', low='blue')
+# plot output
+p
+
+
+p4 <- VlnPlot(
+  seurat_obj,
+  features = 'brown', # colours
+  group.by = 'Time',
+  pt.size = 0 # don't show actual data points
+)
+# add box-and-whisker plots on top:
+p4 <- p4 + geom_boxplot(width=.25, fill='white')
+# change axis labels and remove legend:
+p4 <- p4 + xlab('') + ylab('hME') + NoLegend()
+# plot output
+p1
+p2
+p3
+p4
+((p1 / p3) | (p2 / p4) + plot_layout(width = c(2,3)))
+
+seurat_obj56 <- readRDS("hdWGCNA_object_d56.rds")
+seurat_obj70 <- readRDS("hdWGCNA_object_d70.rds")
+seurat_obj100 <- readRDS("hdWGCNA_object_d100.rds")
+
+library(igraph)
+ModuleNetworkPlot(seurat_obj56)
+
+# hubgene network
+HubGeneNetworkPlot(
+  seurat_obj,
+  n_hubs = 5, n_other=5,
+  edge_prop = 0.75,
+  mods = 'all'
+)
+
+seurat_obj <- RunModuleUMAP(
+  seurat_obj100,
+  n_hubs = 10, # number of hub genes to include for the UMAP embedding
+  n_neighbors=20, # neighbors parameter for UMAP
+  min_dist=0.1 # min distance between points in UMAP space
+)
+
+# get the hub gene UMAP table from the seurat object
+umap_df <- GetModuleUMAP(seurat_obj)
+
+turquoise<- umap_df[which(umap_df$color=="turquoise"),]
+black<- umap_df[which(umap_df$color=="black"),]
+blue<- umap_df[which(umap_df$color=="blue"),]
+brown<- umap_df[which(umap_df$color=="brown"),]
+green<- umap_df[which(umap_df$color=="green"),]
+pink<- umap_df[which(umap_df$color=="pink"),]
+red<- umap_df[which(umap_df$color=="red"),]
+yellow<- umap_df[which(umap_df$color=="yellow"),]
+purple<- umap_df[which(umap_df$color=="purple"),]
+tan<- umap_df[which(umap_df$color=="tan"),]
+magenta<- umap_df[which(umap_df$color=="magenta"),]
+greenyellow<- umap_df[which(umap_df$color=="greenyellow"),]
+
+
+write_delim(as.data.frame(blue), file = "blue.csv")
+write_delim(as.data.frame(black), file = "black.csv")
+write_delim(as.data.frame(brown), file = "brown.csv")
+write_delim(as.data.frame(green), file = "green.csv")
+write_delim(as.data.frame(pink), file = "pink.csv")
+write_delim(as.data.frame(yellow), file = "yellow.csv")
+write_delim(as.data.frame(red), file = "red.csv")
+write_delim(as.data.frame(turquoise), file = "turquoise.csv")
+write_delim(as.data.frame(purple), file = "purple.csv")
+write_delim(as.data.frame(tan), file = "tan.csv")
+write_delim(as.data.frame(magenta), file = "magenta.csv")
+write_delim(as.data.frame(greenyellow), file = "greenyellow.csv")
+
+
+turquoise03<- turquoise[which(turquoise$kME >.3),]
+blue<- umap_df[which(umap_df$color=="blue"),]
+blue03<- blue[which(blue$kME > .3),]
+
+write_delim(as.data.frame(blue$gene), file = "blue.txt")
+write_delim(as.data.frame(black$gene), file = "black.txt")
+write_delim(as.data.frame(brown$gene), file = "brown.txt")
+write_delim(as.data.frame(green$gene), file = "green.txt")
+write_delim(as.data.frame(pink$gene), file = "pink.txt")
+write_delim(as.data.frame(yellow$gene), file = "yellow.txt")
+write_delim(as.data.frame(red$gene), file = "red.txt")
+write_delim(as.data.frame(turquoise$gene), file = "turquoise.txt")
+
+#######################################################################################################################
+#######################################################################################################################
+ind100 <- subset(object11, subset = Time %in% c("D100"))
+ind56_70 <- subset(object1, subset = Time %in% c("D56","D70"))
+ind56 <- subset(object11, subset = Time %in% c("D56"))
+ind70 <- subset(object11, subset = Time %in% c("D70"))
+
+geeenes <- c(turquoise$gene, black$gene, blue$gene, green$gene, red$gene, pink$gene, yellow$gene)
+geeenes <- umap_df$gene
+IN_matrix_all <- as.data.frame(seurat_obj100@assays$RNA@data)
+#IN_matrix_all <- IN_matrix_all[which(rownames(IN_matrix_all) %in% geeenes),]
+Genotype <- seurat_obj100@meta.data$Genotype
+metadata_in <- as.data.frame(Genotype)
+rownames(metadata_in) <- colnames(IN_matrix_all)
+metadata_in$cells <- colnames(IN_matrix_all)
+cond1 <- subset(metadata_in, Genotype == "Ctrl")
+cond2 <- subset(metadata_in, Genotype == "Rett")
+
+samples1 <- cond1$cells
+samples2 <- cond2$cells
+df <- as.matrix(IN_matrix_all)
+
+#ident.1 = paste(cond1$Genotype ,"-",samples1, sep = '')
+#ident.2 = paste(cond2$phenotype,'-',samples2, sep = '')
+#Subset expression data into cells from two conditions:
+sub.data.id1 <- as.data.frame(as.matrix(x = df[, samples1]))
+sub.data.id2 <- as.data.frame(as.matrix(x = df[, samples2]))
+
+c1 <- dim(sub.data.id1)[2]
+c2 <- dim(sub.data.id2)[2]
+#merge the datasets from both conditions into a df
+tpm <- cbind( sub.data.id1,sub.data.id2)
+new.df <- cbind(Description="",tpm)
+#get the matrix dimensions
+dimensions <- dim(tpm)
+library(CePa)
+filePrefix = "IN_Matrix"
+header1="#1.2"
+header2=paste(dimensions[1],dimensions[2],sep="\t")
+write.table(header1, file=paste(filePrefix,".gct",sep=""), sep="\t", quote=FALSE,col.names=FALSE,row.names=FALSE   )
+write.table(header2, file=paste(filePrefix,".gct",sep=""), sep="\t", quote=FALSE,col.names=FALSE,row.names=FALSE , append=TRUE  )
+write.table(new.df, file=paste(filePrefix,".gct",sep=""), sep="\t", quote=FALSE, append=TRUE,col.names=NA   )
+
+ident.1 = rep(0,829)
+ident.2 = rep(1,793)
+conditions = c(ident.1,ident.2)
+header=paste(dimensions[2], "2", "1",sep=" ")
+line2=paste("#",conditions[1],conditions[900], sep=" ")
+line3=paste( rep(c(conditions[1],conditions[900]), c(c1,c2)),sep = " " )
+write.table(header, file=paste(filePrefix,".cls",sep=""), sep=" ",quote=FALSE,col.names=FALSE,row.names=FALSE)
+write.table(line2,file=paste(filePrefix,".cls",sep=""), sep=" ", quote=FALSE,col.names=FALSE,row.names=FALSE , append=TRUE)
+linex=line3[1]
+for (i in 2:length(line3)){
+  linex <- paste(linex,line3[i],sep =" ")}
+write.table(linex,file=paste(filePrefix,".cls",sep=""), sep=" ", quote=FALSE,col.names=FALSE,row.names=FALSE , append=TRUE)
+
+InputPrefix <-"IN_Matrix"
+srcdir <- "GSEAdb/GSEA.1.1.R"
+GeneSet <- "GSEAdb/db/control.gmt"
+doc.STRING= "GSEA"
+
+RunGSEA <- function(InputPrefix, GeneSet, outputDir = getwd(), ...){
+  GSEA.program.location <- paste(outputDir,"/",srcdir,sep = "")
+  source(GSEA.program.location, verbose=F, max.deparse.length=9999)
+  
+  #print(doc.STRING)
+  #print(InputPrefix)
+  
+  GSEA(   # Input/Output Files :-------------------------------------------
+          input.ds =  paste(outputDir,"/",InputPrefix,".gct",sep = ""),           # Input gene expression Affy dataset file in RES or GCT format
+          input.cls = paste(outputDir,"/",InputPrefix,".cls",sep = ""),           # Input class vector (phenotype) file in CLS format
+          #gs.db =   paste(srcdir,"/../GeneSetDatabases/",GeneSet,sep=""),         # Gene set database in GMT format
+          gs.db =   paste(outputDir, "/", GeneSet, sep=""),         # Gene set database in GMT format
+          output.directory      = paste(outputDir,"/",sep = ""),        # Directory where to store output and results (default: "")
+          #  Program parameters :-------------------------------------------------------------------------------------------------------------------------
+          doc.string            = doc.STRING,   # Documentation string used as a prefix to name result files (default: "GSEA.analysis")
+          non.interactive.run   = TRUE,               # Run in interactive (i.e. R GUI) or batch (R command line) mode (default: F)
+          reshuffling.type      = "sample.labels", # Type of permutation reshuffling: "sample.labels" or "gene.labels" (default: "sample.labels"
+          nperm                 = 1000,            # Number of random permutations (default: 1000)
+          weighted.score.type   =  1,              # Enrichment correlation-based weighting: 0=no weight (KS), 1= weigthed, 2 = over-weigthed (default: 1)
+          nom.p.val.threshold   = 0.001,              # Significance threshold for nominal p-vals for gene sets (default: -1, no thres)
+          fwer.p.val.threshold  = 0.001,              # Significance threshold for FWER p-vals for gene sets (default: -1, no thres)
+          fdr.q.val.threshold   = 0.25,            # Significance threshold for FDR q-vals for gene sets (default: 0.25)
+          topgs                 = 1615,              # Besides those passing test, number of top scoring gene sets used for detailed reports (default: 10)
+          adjust.FDR.q.val      = F,               # Adjust the FDR q-vals (default: F)
+          gs.size.threshold.min = 15,              # Minimum size (in genes) for database gene sets to be considered (default: 25)
+          gs.size.threshold.max = 2000,             # Maximum size (in genes) for database gene sets to be considered (default: 500)
+          reverse.sign          = F,               # Reverse direction of gene list (pos. enrichment becomes negative, etc.) (default: F)
+          preproc.type          = 0,               # Preproc.normalization: 0=none, 1=col(z-score)., 2=col(rank) and row(z-score)., 3=col(rank). (def: 0)
+          random.seed           = 3338,            # Random number generator seed. (default: 123456)
+          perm.type             = 0,               # For experts only. Permutation type: 0 = unbalanced, 1 = balanced (default: 0)
+          fraction              = 1.0,             # For experts only. Subsampling fraction. Set to 1.0 (no resampling) (default: 1.0)
+          replace               = F,               # For experts only, Resampling mode (replacement or not replacement) (default: F)
+          save.intermediate.results = F,           # For experts only, save intermediate results (e.g. matrix of random perm. scores) (default: F)
+          OLD.GSEA              = F,               # Use original (old) version of GSEA (default: F)
+          use.fast.enrichment.routine = T          # Use faster routine to compute enrichment for random permutations (default: T)
+  )
+  
+}
+
+
+RunGSEA(InputPrefix = InputPrefix, GeneSet = GeneSet, outputDir = getwd())
+
+#This function returns the table of all Enrichment results with corrected p-values.
+library(tidyverse)
+library(dplyr)
+
+majorSummaryTable <- NULL
+GSreportsTable <- NULL
+mySumFiles <- list.files(pattern="*SUMMARY.RESULTS.REPORT*")
+
+for (i in 1:length(mySumFiles)){
+  
+  sumTable <- read.delim(mySumFiles[i]) %>% as.tibble() %>% add_column(Comparison=strsplit(mySumFiles[i],"_Clust")[[1]][1],EnrichmentDirection_ClusterID=strsplit(mySumFiles[i],"\\.")[[1]][5])
+  majorSummaryTable <- bind_rows(majorSummaryTable, sumTable)
+  
+  #for each Gene set, j, in the summary table:
+  for(j in 1:length(read.delim(mySumFiles[i])[,1])){
+    #the Gene Set j from the directory: Get the file prefix from the Summary file name + combine with gene set name + add ".txt" to the end.
+    geneSetReportfile=list.files(pattern=paste(strsplit(mySumFiles[i],"\\.")[[1]][1], (read.delim(mySumFiles[i]) %>% as.tibble() %>% select(GS) %>% c())[[1]][j],"report",strsplit(mySumFiles[i],"\\.")[[1]][5], "*.txt", sep = "."))
+    
+    if (!identical(geneSetReportfile, character(0))){
+      #if (!identical(geneSetReportfile, character(0)) && (geneSetReportfile != "Subordinate_Control_Cluster_19_ExpMatrix_Calvin_manual_genesets.neuromuscular junction.report.Control-19.12.txt")){
+      
+      gs.reporttable <-  read.delim(geneSetReportfile) %>%
+        as.tibble() %>%
+        dplyr::filter(CORE_ENRICHMENT == "YES") %>% # filter out genes which are not in the Leading Edge.
+        add_column(
+          Comparison = strsplit(mySumFiles[i],"_Clust")[[1]][1], #Create a column for Comparison type, ex; 'Dominant_Control'
+          EnrichmentDirection_ClusterID = strsplit(mySumFiles[i],"\\.")[[1]][5], #Create a column for Enrichment direction, ex; 'Control-1'. This also shows the cluster id.
+          GS = (read.delim(mySumFiles[i]) %>% as.tibble() %>% select(GS) %>% c())[[1]][j] #Create a column for Gene Set name.
+        )
+      GSreportsTable <- bind_rows(GSreportsTable, gs.reporttable)
+      
+    }else{break}#closes ifelse for report file existance.
+  }#closes loop for j
+}#closes loop for i
+
+majorSummaryTable <- majorSummaryTable %>% as.tibble() %>% mutate(pAdj.Nom=p.adjust(NOM.p.val,method="BH")) %>% arrange(pAdj.Nom)
+sigtable <- majorSummaryTable %>% dplyr::filter(FDR.q.val < 0.25) %>% unite(plotfilename, Comparison,GS,EnrichmentDirection_ClusterID,sep="*",remove = FALSE)
+#Write the main table and only significant enrichments to separate files:
+majorSummaryTable %>% write_tsv(file.path("All.Enrichment.stats.txt"))
+sigtable %>% write_tsv(file.path("below_25percent.Enrichments.txt"))
+
